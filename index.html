@@ -1183,9 +1183,9 @@ footer {
 .top-player-card:hover{background:#f8fafc}
 .top-player-card-title{font-size:12px;font-weight:700;color:#3f4847;margin-bottom:10px}
 .top-player-card-row{display:grid;grid-template-columns:auto auto 1fr auto;align-items:center;gap:8px}
-.top-player-rank{font-size:12px;color:#8c9694}
+.top-player-rank{font-family:'Roboto',sans-serif;font-weight:500;font-size:10px;color:#6b6b6b}
 .top-player-dot{width:7px;height:7px;border-radius:50%;background:var(--type);display:inline-block}
-.top-player-name{font-size:12px;color:#2e3635;text-decoration:underline;text-underline-offset:2px}
+.top-player-name{font-family:'Roboto',sans-serif;font-size:12px;font-weight:600;color:var(--ink);text-decoration:none}
 .top-player-value{font-size:12px;font-weight:700;color:var(--blue);text-align:right}
 @media(max-width:900px){.top-player-grid{grid-template-columns:1fr}.top-player-card + .top-player-card{border-left:0;border-top:1px solid #e6eaf0}.top-player-card{min-height:70px}}
 
@@ -1549,6 +1549,8 @@ button{font-family:inherit}
 }
 .top-player-heading strong {
   display: inline-block;
+  color: #343d4d !important;
+  text-transform: uppercase;
 }
 </style>
 
@@ -1620,7 +1622,7 @@ button{font-family:inherit}
     <div class="dashboard-content">
 
       <section class="top-player-section" aria-labelledby="topPlayerHeading">
-        <div class="top-player-heading" id="topPlayerHeading">🏆 <strong>Top Player by Category</strong><span>· Click a player to view their details</span></div>
+        <div class="top-player-heading" id="topPlayerHeading">🏆 <strong>TOP PLAYER BY CATEGORY</strong></div>
         <div class="top-player-grid" id="topPlayerGrid"></div>
       </section>
 
@@ -2017,7 +2019,7 @@ function renderWorlds(){
   const worlds=getWorlds();
   worlds.sort((a,b)=> worldOrder==="players"?b.players-a.players:worldOrder==="blocks"?b.blocks-a.blocks:b.minutes-a.minutes);
   const max=Math.max(...worlds.map(w=>w.minutes),1);
-  document.getElementById("worldList").innerHTML=worlds.map((w,i)=>`<div class="world-row"><span class="rank">0${i+1}</span><div class="world-main"><strong>${esc(w.name)}</strong><span class="world-line"><i style="width:${Math.max(8,w.minutes/max*100)}%"></i></span></div><div><strong>${fmt.format(w.players)}</strong><span>players</span></div><div><strong>${fmt.format(w.minutes)}</strong><span>minutes</span></div><div><strong>${fmt.format(w.blocks)}</strong><span>blocks</span></div></div>`).join("");
+  document.getElementById("worldList").innerHTML=worlds.map((w,i)=>`<div class="world-row"><span class="rank">#${i+1}</span><div class="world-main"><strong>${esc(w.name)}</strong><span class="world-line"><i style="width:${Math.max(8,w.minutes/max*100)}%"></i></span></div><div><strong>${fmt.format(w.players)}</strong><span>players</span></div><div><strong>${fmt.format(w.minutes)}</strong><span>minutes</span></div><div><strong>${fmt.format(w.blocks)}</strong><span>blocks</span></div></div>`).join("");
 }
 
 document.getElementById("mapOrderBtn").onclick=()=>{mapOrder=mapOrder==="playtime"?"type":"playtime";document.getElementById("mapOrderBtn").textContent="LAYER · "+mapOrder.toUpperCase();renderScatter()};
