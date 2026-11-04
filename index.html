@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INTERLINK Beta Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.5.0/echarts.min.js"></script>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="mock-banner">MOCKUP · Akkadia 베타 로그만 사용 (KST 2026-10-12 18:39 → 10-22 15:51, 3,378만 줄, 중복 24,167줄 제거)</div>
+
+  <header class="top">
+    <div>
+      <div class="team">TEAM INTERLINK</div>
+      <h1>누가, 어떤 블록을, 어느 월드에서?</h1>
+      <p class="sub">Akkadia 베타 행동 로그로 본 유저 유형 × 블록 × 월드 (+ 퀘스트). 차트의 점·막대·띠·블록을 누르면 아래에 그 데이터의 표가 열립니다.</p>
+    </div>
+    <div class="filters" id="filters" role="group" aria-label="유형 필터"><span class="lbl">유형</span></div>
+  </header>
+
+  <section class="kpis" id="kpis"></section>
+  <p class="section-title" style="margin-top:18px">🏆 항목별 1위 플레이어 <span style="font-weight:400;color:var(--ink-3);font-size:12px">· 제목을 누르면 전체 순위표, 이름을 누르면 그 사람 카드</span></p>
+  <section class="ranks" id="ranks"></section>
+
+  <p class="section-title">① 누가: 유저 유형</p>
+  <div class="row">
+    <section class="panel">
+      <h2>유저 유형 지도 <span class="tag">관계 · 군집</span></h2>
+      <p class="why">점 하나가 플레이어 한 명입니다. 가로는 다닌 구역 수(16×16 블록 칸), 세로는 손으로 놓은 블록 수(둘 다 로그 눈금), 크기는 플레이 시간입니다. 점을 누르면 오른쪽에 그 사람의 기록이 나옵니다.</p>
+      <div class="legend" id="typeLegend"></div>
+      <div id="scatter" class="chart" style="height:420px" role="img" aria-label="플레이어 유형 산점도"></div>
+    </section>
+    <section class="panel pcard" id="pcard"></section>
+  </div>
+
+  <p class="section-title">② 어디서: 유형별 월드</p>
+  <div class="row">
+    <section class="panel">
+      <h2>유형 → 월드 종류 <span class="tag">흐름</span></h2>
+      <p class="why">왼쪽 유형이 오른쪽 월드 종류에서 보낸 시간입니다. 띠 굵기는 플레이 시간(분)입니다. 모든 플레이어가 허브(akkadia-hub)를 거칩니다.</p>
+      <div id="sankey" class="chart" role="img" aria-label="유형에서 월드 종류로 가는 Sankey"></div>
+    </section>
+    <section class="panel">
+      <h2>날짜별 플레이어 <span class="tag">시간 비교</span></h2>
+      <p class="why">하루에 한 번이라도 접속한 플레이어 수를 유형별로 쌓았습니다. 10/12와 10/22는 하루 전체가 아닙니다.</p>
+      <div id="daily" class="chart" role="img" aria-label="날짜별 유형별 플레이어 수"></div>
+    </section>
+  </div>
+
+  <p class="section-title">③ 무엇을: 유형별 블록</p>
+  <section class="panel">
+    <h2>유형 × 월드마다 많이 놓은 블록 Top 10 <span class="tag">순위 · 구성</span></h2>
+    <p class="why">%는 그 유형이 손으로 놓은 블록 전체 중 비율입니다. "평균 종류"는 블록을 놓은 사람 한 명이 쓴 블록 종류 수의 평균입니다. 베타 로그에는 설계도(blueprint) 배치 기록이 없어 손으로 놓은 블록만 셉니다.</p>
+    <div class="bworld" id="bworld" role="group" aria-label="월드 선택"></div>
+    <p class="why" id="bnote"></p>
+    <div class="btypes" id="btypes"></div>
+  </section>
+
+  <p class="section-title">④ 퀘스트: 유형별 참여 (10/15 18:06부터)</p>
+  <div class="row">
+    <section class="panel">
+      <h2>퀘스트를 완료한 사람의 비율 <span class="tag">비교</span></h2>
+      <p class="why">10/15 18:06 이후 접속한 사람 중 퀘스트를 하나 이상 완료한 사람의 비율과, 완료한 사람 한 명당 평균 완료 수입니다.</p>
+      <div class="qcards" id="qcards"></div>
+    </section>
+    <section class="panel">
+      <h2>유형별 퀘스트 종류 <span class="tag">구성</span></h2>
+      <p class="why">완료한 퀘스트를 퀘스트 ID의 머리글자로 묶었습니다(예: journey_r_… = 채집). 묶음 이름은 ID에서 추정한 것으로 회사의 퀘스트 내용표로 확인이 필요합니다.</p>
+      <div id="qmix" class="chart" style="height:300px" role="img" aria-label="유형별 퀘스트 종류 구성"></div>
+    </section>
+  </div>
+
+  <p class="section-title">⑤ 월드 행동 지도</p>
+  <section class="panel">
+    <h2>월드를 위에서 본 모습 <span class="tag">공간 분포</span></h2>
+    <p class="why">회색 칸은 선택한 유형이 다닌 곳(4×4 블록 칸, 진할수록 많이)이고, 색 점은 손으로 놓은 블록입니다(블록 이미지의 평균 색). 날짜 슬라이더를 움직이면 그날까지 놓인 블록만 보입니다. 위의 유형 필터가 여기에도 적용됩니다.</p>
+    <div class="mapctl">
+      <label>월드 <select id="mapPick" class="picker"></select></label>
+      <label>날짜까지 <input type="range" id="daySlider" min="0" max="10" value="10"> <b id="dayLabel"></b></label>
+      <button class="dclose" id="mapTable" type="button">블록 표 보기</button>
+      <span id="mapInfo"></span>
+    </div>
+    <div class="mapwrap"><canvas id="map" role="img" aria-label="월드 상단 지도"></canvas></div>
+  </section>
+
+  <section class="panel notes">
+    <h2>숫자를 만든 방법</h2>
+    <ul>
+      <li><b>데이터</b>: 베타 로그만 사용(10/12부터, 알파 7월 로그는 쓰지 않음). Archive 1–4 압축 파일을 쓰고, 10/12–10/14 일부만 담긴 telemetry*.zip은 쓰지 않음. 같은 eventId는 한 번만 셈(이동 기록 포함, 중복 24,167줄은 모두 Archive 2의 10/15–10/16). 플레이 시간 = 플레이어가 그 월드에서 이벤트를 보낸 서로 다른 분(minute)의 수.</li>
+      <li><b>유형</b>: 플레이 30분 미만은 <b>잠깐 들른 사람</b>. 나머지 중 블록 수정(놓은+캔 블록)이 1분에 0.2개 미만이고 처치가 1분에 0.1회 미만이면 <b>탐험가(허브 체류형)</b>. 그 외에는 건축 점수 = (놓은+캔 블록) ÷ 분 ÷ 3, 전투 점수 = 처치 ÷ 분 ÷ 0.6 을 비교해 건축 점수가 크거나 같으면 <b>건축가</b>, 아니면 <b>전투가</b>.</li>
+      <li><b>다닌 구역</b> = move 좌표를 16×16 블록 칸으로 나눈 (월드, 칸)의 개수. <b>놓은 블록</b> = client block_place. <b>캔 블록</b> = 서버 block_change_resolved 중 blockPacked=0(블록 제거)이고 승인된 것.</li>
+      <li><b>퀘스트</b>: worker quest_changed의 completed=true인 (questId, 기간) 수. 10/15 18:06 이전 행은 내용이 비어 있어 제외. 보상 수령(bridge) 행은 어떤 퀘스트인지 남지 않음.</li>
+      <li><b>한계</b>: 베타에는 /su 같은 관리자 명령 기록이 없어 관리자 계정을 아직 걸러내지 못함. 개인 월드 이름은 personal-world-N으로 익명화됨. 플레이어 주소는 P001–P140으로 바꿈(플레이 시간 순).</li>
+    </ul>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+<section class="dpanel" id="dpanel" role="dialog" aria-label="선택한 데이터" aria-hidden="true">
+  <div class="dhead"><div><h3 id="dtitle"></h3><p class="dsub" id="dsub"></p></div><button class="dclose" id="dclose" type="button">닫기 ✕</button></div>
+  <div class="dsum" id="dsum"></div>
+  <div class="dbody"><table class="xl" id="dtable"></table></div>
+</section>
+<script src="data/data.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

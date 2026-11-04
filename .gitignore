@@ -1,0 +1,7 @@
+# raw beta logs and intermediate files (too large / not for the repo)
+*.zip
+*.pkl
+akkadia-blocks/
+akkadia-items/
+__pycache__/
+.DS_Store
