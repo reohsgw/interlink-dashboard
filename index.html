@@ -1589,6 +1589,21 @@ button{font-family:inherit}
   margin: 0 !important;
 }
 </style>
+<style>
+/* Review fixes: icon color, bottom alignment, drag affordances */
+.player-panel .player-icon { color: #6b6b6b !important; }
+.player-panel .player-icon .icon,
+.player-panel .player-icon .icon * { stroke: #6b6b6b !important; }
+.player-panel .player-icon .icon { stroke-width: 1.25 !important; }
+.dashboard-content { padding-bottom: 0 !important; }
+.top-player-section { margin-bottom: 12px !important; }
+.top-player-heading { gap: 0 !important; }
+.top-player-name { font-weight: 700; text-decoration: none !important; }
+.sankey { user-select: none; -webkit-user-select: none; }
+.sankey-hit { fill: transparent; }
+.sankey-draggable { cursor: grab; touch-action: none; }
+.sankey-node-group.is-dragging { cursor: grabbing; transition: opacity 220ms ease !important; }
+</style>
 </head>
 <body>
 <main>
@@ -1622,7 +1637,7 @@ button{font-family:inherit}
     <div class="dashboard-content">
 
       <section class="top-player-section" aria-labelledby="topPlayerHeading">
-        <div class="top-player-heading" id="topPlayerHeading">🏆 <strong>TOP PLAYER BY CATEGORY</strong></div>
+        <div class="top-player-heading" id="topPlayerHeading"><strong>TOP PLAYER BY CATEGORY</strong></div>
         <div class="top-player-grid" id="topPlayerGrid"></div>
       </section>
 
@@ -1724,6 +1739,7 @@ let filter = "All";
 let selectedId = players.find(p=>p.id==="P006") ? "P006" : players[0].id;
 let mapOrder = "playtime";
 let flowInteracted=false;
+let flowTypeOrder=null, flowWorldOrder=null, flowDrag=null;
 let dailyOrder = "date";
 let blockType = "Builder";
 let worldOrder = "playtime";
@@ -1871,74 +1887,107 @@ function renderFlow(){
   const chip=document.getElementById("flowChip");
   chip.className=`selected-flow-chip ${TYPE_CLASS[s.type]}`; chip.textContent=`${s.id} · ${s.type}`;
   const svg=document.getElementById("sankey"), links=flowData();
-  const typeNames=TYPES.filter(t=>links.some(l=>l.type===t));
+  const applyOrder=(names,custom)=>custom?custom.filter(n=>names.includes(n)).concat(names.filter(n=>!custom.includes(n))):names;
+  const baseTypes=TYPES.filter(t=>links.some(l=>l.type===t));
   const preferredWorldOrder=["Hub","Personal World","Dungeon","Library","Mars","Other"];
   const existingWorlds=[...new Set(links.map(l=>l.world))];
-  const worldNames=preferredWorldOrder.filter(w=>existingWorlds.includes(w)).concat(existingWorlds.filter(w=>!preferredWorldOrder.includes(w)));
-  const typeTotals=Object.fromEntries(typeNames.map(t=>[t,links.filter(l=>l.type===t).reduce((a,b)=>a+b.minutes,0)]));
-  const worldTotals=Object.fromEntries(worldNames.map(w=>[w,links.filter(l=>l.world===w).reduce((a,b)=>a+b.minutes,0)]));
+  const baseWorlds=preferredWorldOrder.filter(w=>existingWorlds.includes(w)).concat(existingWorlds.filter(w=>!preferredWorldOrder.includes(w)));
+  const typeTotals=Object.fromEntries(baseTypes.map(t=>[t,links.filter(l=>l.type===t).reduce((a,b)=>a+b.minutes,0)]));
+  const worldTotals=Object.fromEntries(baseWorlds.map(w=>[w,links.filter(l=>l.world===w).reduce((a,b)=>a+b.minutes,0)]));
   const maxTotal=Math.max(...Object.values(typeTotals),...Object.values(worldTotals),1);
   const leftX=132,rightX=748,nodeW=12;
   const top=42,bottom=278;
-
-  // Give every label its own vertical slot so small categories never overlap.
-  const slotPositions=(names,totals)=>{
-    const span=bottom-top;
-    const step=names.length>1?span/(names.length-1):0;
-    const pos={};
-    names.forEach((n,i)=>{
-      const h=Math.max(8,Math.min(48,(totals[n]/maxTotal)*48));
-      const cy=top+i*step;
-      pos[n]={y:cy-h/2,h,cy};
-    });
-    return pos;
-  };
-  const lp=slotPositions(typeNames,typeTotals), rp=slotPositions(worldNames,worldTotals);
+  const nodeH=total=>Math.max(8,Math.min(48,(total/maxTotal)*48));
+  const typeH=Object.fromEntries(baseTypes.map(t=>[t,nodeH(typeTotals[t])]));
+  const worldH=Object.fromEntries(baseWorlds.map(w=>[w,nodeH(worldTotals[w])]));
 
   // Scale each band so all bands fit inside their source/target nodes.
   const rawWidth=l=>Math.max(.75,(l.minutes/maxTotal)*42);
-  const sourceRaw=Object.fromEntries(typeNames.map(t=>[t,links.filter(l=>l.type===t).reduce((a,l)=>a+rawWidth(l),0)]));
-  const targetRaw=Object.fromEntries(worldNames.map(w=>[w,links.filter(l=>l.world===w).reduce((a,l)=>a+rawWidth(l),0)]));
-  const sourceScale=Object.fromEntries(typeNames.map(t=>[t,Math.min(1,lp[t].h/Math.max(sourceRaw[t],1))]));
-  const targetScale=Object.fromEntries(worldNames.map(w=>[w,Math.min(1,rp[w].h/Math.max(targetRaw[w],1))]));
-  const usedL=Object.fromEntries(typeNames.map(t=>[t,(lp[t].h-sourceRaw[t]*sourceScale[t])/2]));
-  const usedR=Object.fromEntries(worldNames.map(w=>[w,(rp[w].h-targetRaw[w]*targetScale[w])/2]));
+  const sourceRaw=Object.fromEntries(baseTypes.map(t=>[t,links.filter(l=>l.type===t).reduce((a,l)=>a+rawWidth(l),0)]));
+  const targetRaw=Object.fromEntries(baseWorlds.map(w=>[w,links.filter(l=>l.world===w).reduce((a,l)=>a+rawWidth(l),0)]));
+  const sourceScale=Object.fromEntries(baseTypes.map(t=>[t,Math.min(1,typeH[t]/Math.max(sourceRaw[t],1))]));
+  const targetScale=Object.fromEntries(baseWorlds.map(w=>[w,Math.min(1,worldH[w]/Math.max(targetRaw[w],1))]));
+  const bandW=l=>Math.max(.7,rawWidth(l)*Math.min(sourceScale[l.type],targetScale[l.world]));
+  const keyOf=l=>l.type+"→"+l.world;
 
+  // Every node gets its own evenly spaced slot; the dragged node follows the pointer instead.
+  const layout=()=>{
+    const types=applyOrder(baseTypes,flowTypeOrder), worlds=applyOrder(baseWorlds,flowWorldOrder);
+    const slots=names=>{const step=names.length>1?(bottom-top)/(names.length-1):0;return Object.fromEntries(names.map((n,i)=>[n,top+i*step]));};
+    const tc=slots(types), wc=slots(worlds);
+    if(flowDrag) (flowDrag.side==="type"?tc:wc)[flowDrag.key]=flowDrag.cy;
+    const sy={}, ty={};
+    // Stack bands in the order of the opposite column so flows stay untangled after reordering.
+    types.forEach(t=>{
+      let used=tc[t]-typeH[t]/2+(typeH[t]-sourceRaw[t]*sourceScale[t])/2;
+      links.filter(l=>l.type===t).sort((a,b)=>worlds.indexOf(a.world)-worlds.indexOf(b.world)).forEach(l=>{const w=bandW(l);sy[keyOf(l)]=used+w/2;used+=w;});
+    });
+    worlds.forEach(w=>{
+      let used=wc[w]-worldH[w]/2+(worldH[w]-targetRaw[w]*targetScale[w])/2;
+      links.filter(l=>l.world===w).sort((a,b)=>types.indexOf(a.type)-types.indexOf(b.type)).forEach(l=>{const bw=bandW(l);ty[keyOf(l)]=used+bw/2;used+=bw;});
+    });
+    return {types,worlds,tc,wc,sy,ty};
+  };
+  const pathD=(l,L)=>{const a=L.sy[keyOf(l)],b=L.ty[keyOf(l)],c1=leftX+195,c2=rightX-195;return `M ${leftX+nodeW} ${a} C ${c1} ${a}, ${c2} ${b}, ${rightX} ${b}`;};
+
+  const L0=layout();
   let paths="",nodes="";
   links.forEach(l=>{
-    const sw=Math.max(.7,rawWidth(l)*Math.min(sourceScale[l.type],targetScale[l.world]));
-    const sy=lp[l.type].y+usedL[l.type]+sw/2;
-    const ty=rp[l.world].y+usedR[l.world]+sw/2;
-    usedL[l.type]+=sw; usedR[l.world]+=sw;
-    const c1=leftX+195,c2=rightX-195;
-    paths+=`<path class="flow-line ${TYPE_CLASS[l.type]}" data-type="${esc(l.type)}" data-world="${esc(l.world)}" data-label="${esc(l.type+" → "+l.world)}" data-minutes="${l.minutes}" data-percent="${(l.minutes/typeTotals[l.type]*100).toFixed(1)}" d="M ${leftX+nodeW} ${sy} C ${c1} ${sy}, ${c2} ${ty}, ${rightX} ${ty}" style="stroke:${TYPE_COLOR[l.type]}" stroke-width="${sw}"/>`;
+    const d=pathD(l,L0);
+    paths+=`<path class="flow-line ${TYPE_CLASS[l.type]}" data-key="${esc(keyOf(l))}" data-type="${esc(l.type)}" data-world="${esc(l.world)}" data-label="${esc(l.type+" → "+l.world)}" data-minutes="${l.minutes}" data-percent="${(l.minutes/typeTotals[l.type]*100).toFixed(1)}" d="${d}" style="stroke:${TYPE_COLOR[l.type]};d:path('${d}')" stroke-width="${bandW(l)}"/>`;
   });
-  typeNames.forEach(t=>{
-    nodes+=`<g class="sankey-node-group" data-side="type" data-key="${esc(t)}"><rect class="sankey-node-rect node ${TYPE_CLASS[t]}" x="${leftX}" y="${lp[t].y}" width="${nodeW}" height="${lp[t].h}"/><text class="sankey-node-text" x="${leftX-16}" y="${lp[t].cy-3}" text-anchor="end">${t}</text><text class="sankey-node-value" x="${leftX-16}" y="${lp[t].cy+12}" text-anchor="end">${fmt.format(typeTotals[t])} min</text></g>`;
+  L0.types.forEach(t=>{
+    const h=typeH[t];
+    nodes+=`<g class="sankey-node-group sankey-draggable" data-side="type" data-key="${esc(t)}" style="transform:translate(0px,${L0.tc[t]}px)"><rect class="sankey-hit" x="${leftX-120}" y="-20" width="${132+nodeW}" height="40"/><rect class="sankey-node-rect node ${TYPE_CLASS[t]}" x="${leftX}" y="${-h/2}" width="${nodeW}" height="${h}"/><text class="sankey-node-text" x="${leftX-16}" y="-3" text-anchor="end">${t}</text><text class="sankey-node-value" x="${leftX-16}" y="12" text-anchor="end">${fmt.format(typeTotals[t])} min</text></g>`;
   });
-  worldNames.forEach(w=>{
-    nodes+=`<g class="sankey-node-group" data-side="world" data-key="${esc(w)}"><rect class="sankey-node-rect world-node" x="${rightX}" y="${rp[w].y}" width="${nodeW}" height="${rp[w].h}"/><text class="sankey-node-text" x="${rightX+18}" y="${rp[w].cy-3}">${w}</text><text class="sankey-node-value" x="${rightX+18}" y="${rp[w].cy+12}">${fmt.format(worldTotals[w])} min</text></g>`;
+  L0.worlds.forEach(w=>{
+    const h=worldH[w];
+    nodes+=`<g class="sankey-node-group sankey-draggable" data-side="world" data-key="${esc(w)}" style="transform:translate(0px,${L0.wc[w]}px)"><rect class="sankey-hit" x="${rightX-4}" y="-20" width="140" height="40"/><rect class="sankey-node-rect world-node" x="${rightX}" y="${-h/2}" width="${nodeW}" height="${h}"/><text class="sankey-node-text" x="${rightX+18}" y="-3">${w}</text><text class="sankey-node-value" x="${rightX+18}" y="12">${fmt.format(worldTotals[w])} min</text></g>`;
   });
   svg.innerHTML=paths+nodes;
+
+  const lineEls=[...svg.querySelectorAll(".flow-line")];
+  const groupEls=[...svg.querySelectorAll(".sankey-node-group")];
+  const linkByKey=Object.fromEntries(links.map(l=>[keyOf(l),l]));
+  // Move nodes and redraw bands in place; CSS transitions animate everything except the dragged node.
+  const relayout=()=>{
+    const L=layout();
+    svg.classList.toggle("is-dragging",!!flowDrag);
+    groupEls.forEach(g=>{
+      const cy=(g.dataset.side==="type"?L.tc:L.wc)[g.dataset.key];
+      g.classList.toggle("is-dragging",!!flowDrag&&flowDrag.side===g.dataset.side&&flowDrag.key===g.dataset.key);
+      g.style.transform=`translate(0px,${cy}px)`;
+    });
+    lineEls.forEach(p=>{
+      const d=pathD(linkByKey[p.dataset.key],L);
+      const linked=!!flowDrag&&(flowDrag.side==="type"?p.dataset.type===flowDrag.key:p.dataset.world===flowDrag.key);
+      p.classList.toggle("is-drag-linked",linked);
+      p.setAttribute("d",d);
+      p.style.d=`path('${d}')`;
+    });
+  };
+  renderFlow.relayout=relayout;
+
   const hover=document.getElementById("flowHover");
   const floatTip=document.getElementById("flowFloatTip");
   const wrap=svg.closest(".sankey-wrap");
   const clearFlowHover=()=>{
     svg.classList.remove("is-hovering");
-    svg.querySelectorAll(".flow-line").forEach(x=>x.classList.remove("is-hovered"));
-    svg.querySelectorAll(".sankey-node-group").forEach(x=>x.classList.remove("is-dimmed"));
+    lineEls.forEach(x=>x.classList.remove("is-hovered"));
+    groupEls.forEach(x=>x.classList.remove("is-dimmed"));
     hover.classList.remove("show");
     hover.innerHTML="";
     floatTip.classList.remove("show");
     floatTip.innerHTML="";
     if(note) note.classList.remove("is-hidden");
   };
-  svg.querySelectorAll(".flow-line").forEach(p=>{
+  lineEls.forEach(p=>{
     p.addEventListener("mouseenter",()=>{
+      if(flowDrag) return;
       const type=p.dataset.type, world=p.dataset.world;
       svg.classList.add("is-hovering");
       p.classList.add("is-hovered");
-      svg.querySelectorAll(".sankey-node-group").forEach(g=>{
+      groupEls.forEach(g=>{
         const keep=(g.dataset.side==="type" && g.dataset.key===type) || (g.dataset.side==="world" && g.dataset.key===world);
         g.classList.toggle("is-dimmed",!keep);
       });
@@ -1949,7 +1998,7 @@ function renderFlow(){
       floatTip.classList.add("show");
     });
     p.addEventListener("mousemove",e=>{
-      if(!wrap) return;
+      if(!wrap||flowDrag) return;
       const r=wrap.getBoundingClientRect();
       const left=Math.min(r.width-floatTip.offsetWidth-8, Math.max(8,e.clientX-r.left+12));
       const top=Math.min(r.height-floatTip.offsetHeight-8, Math.max(8,e.clientY-r.top-34));
@@ -1957,9 +2006,47 @@ function renderFlow(){
       floatTip.style.top=top+"px";
     });
   });
-  svg.addEventListener("mouseleave",clearFlowHover);
+  svg.onmouseleave=()=>{ if(!flowDrag) clearFlowHover(); };
 
+  // Drag nodes up/down to reorder either column (same feel as the Figma version).
+  const toSvgY=clientY=>{const m=svg.getScreenCTM();return m?new DOMPoint(0,clientY).matrixTransform(m.inverse()).y:0;};
+  groupEls.forEach(g=>{
+    g.addEventListener("pointerdown",e=>{
+      if(e.button!==0) return;
+      e.preventDefault();
+      const L=layout();
+      const cy=(g.dataset.side==="type"?L.tc:L.wc)[g.dataset.key];
+      flowDrag={side:g.dataset.side,key:g.dataset.key,grab:toSvgY(e.clientY)-cy,cy};
+      svg.setPointerCapture(e.pointerId);
+      clearFlowHover();
+      relayout();
+    });
+  });
+  svg.onpointermove=e=>{
+    if(!flowDrag) return;
+    const L=layout();
+    const names=flowDrag.side==="type"?L.types:L.worlds;
+    flowDrag.cy=Math.min(bottom+16,Math.max(top-16,toSvgY(e.clientY)-flowDrag.grab));
+    const step=names.length>1?(bottom-top)/(names.length-1):0;
+    const target=step?Math.max(0,Math.min(names.length-1,Math.round((flowDrag.cy-top)/step))):0;
+    if(names.indexOf(flowDrag.key)!==target){
+      const next=names.filter(n=>n!==flowDrag.key);
+      next.splice(target,0,flowDrag.key);
+      if(flowDrag.side==="type") flowTypeOrder=next; else flowWorldOrder=next;
+      flowInteracted=true;
+    }
+    relayout();
+  };
+  const endDrag=e=>{
+    if(!flowDrag) return;
+    if(svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+    flowDrag=null;
+    relayout();
+  };
+  svg.onpointerup=endDrag;
+  svg.onpointercancel=endDrag;
 }
+
 function renderDaily(){
   document.getElementById("dailyLegend").innerHTML=legendHTML(false);
   const svg=document.getElementById("dailyChart");
@@ -1977,9 +2064,18 @@ function renderDaily(){
   [49,25,0].forEach(v=>{out+=`<text class="daily-axis daily-y-label" x="${left-34}" y="${y(v)+4}" text-anchor="start">${v}</text>`});
   rows.forEach((r,i)=>{
     let y0=base; const x=left+i*step+(step-bw)/2;
-    shownTypes.forEach(t=>{
+    const visible=shownTypes.filter(t=>(r.values[t]||0)>0);
+    visible.forEach((t,ti)=>{
       const v=r.values[t]||0,h=Math.max(0,v/max*(base-top));
-      y0-=h; out+=`<rect class="daily-bar" x="${x}" y="${y0}" width="${bw}" height="${h}" rx="2.5" fill="${TYPE_COLOR[t]}"><title>${r.label} · ${t}: ${v}</title></rect>`;
+      y0-=h;
+      const title=`<title>${r.label} · ${t}: ${v}</title>`;
+      if(ti===visible.length-1){
+        // Only the top of the whole stack is rounded; segment joins stay square.
+        const rr=Math.min(2.5,h,bw/2);
+        out+=`<path class="daily-bar" d="M ${x} ${y0+h} V ${y0+rr} Q ${x} ${y0} ${x+rr} ${y0} H ${x+bw-rr} Q ${x+bw} ${y0} ${x+bw} ${y0+rr} V ${y0+h} Z" fill="${TYPE_COLOR[t]}">${title}</path>`;
+      } else {
+        out+=`<rect class="daily-bar" x="${x}" y="${y0}" width="${bw}" height="${h}" fill="${TYPE_COLOR[t]}">${title}</rect>`;
+      }
     });
     out+=`<text class="daily-axis daily-day-label" x="${x+bw/2}" y="${base+18}" text-anchor="middle">${r.label}</text>`;
   });
@@ -2024,7 +2120,7 @@ function renderWorlds(){
 
 document.getElementById("mapOrderBtn").onclick=()=>{mapOrder=mapOrder==="playtime"?"type":"playtime";document.getElementById("mapOrderBtn").textContent="LAYER · "+mapOrder.toUpperCase();renderScatter()};
 document.getElementById("dailyOrderBtn").onclick=()=>{dailyOrder=dailyOrder==="date"?"active":"date";document.getElementById("dailyOrderBtn").textContent="ORDER · "+dailyOrder.toUpperCase();renderDaily()};
-document.getElementById("flowReset").onclick=()=>{flowInteracted=false;renderFlow();};
+document.getElementById("flowReset").onclick=()=>{flowInteracted=false;flowTypeOrder=null;flowWorldOrder=null;flowDrag=null;renderFlow.relayout?renderFlow.relayout():renderFlow();};
 
 function renderAll(){ renderSidebar();renderTopPlayers();renderScatter();renderPlayer();renderFlow();renderDaily();renderBlocks();renderWorlds(); }
 renderAll();
